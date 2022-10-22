@@ -168,3 +168,6 @@ app.post("/getRoom", (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server Started at PORT ${PORT}`);
 });
+
+// Export the Express API
+module.exports = app;
