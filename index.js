@@ -67,7 +67,7 @@ app.post("/createRoom", (req, res) => {
     });
 });
 
-app.post("/joinRoom", (req, res) => {
+app.post("/joinRoom", async (req, res) => {
     const { myId, roomId } = req.body;
 
     //Find the temp room
@@ -85,7 +85,7 @@ app.post("/joinRoom", (req, res) => {
     roomsArray = roomsArray.filter(e => e.roomId !== roomId); //Remove from the temp array
 
     //Trigger Pusher Event
-    pusher.trigger(roomId, "user_joined", {
+    const userJoined = await pusher.trigger(roomId, "user_joined", {
         data: room
     })
 
@@ -97,7 +97,7 @@ app.post("/joinRoom", (req, res) => {
     });
 });
 
-app.post("/makeMove", (req, res) => {
+app.post("/makeMove", async (req, res) => {
 
     const { myId, roomId, board, xIsNext } = req.body;
 
@@ -109,7 +109,7 @@ app.post("/makeMove", (req, res) => {
         }
     });
     if (xcount === 1) {
-        pusher.trigger(roomId, "first_move", {
+        const triggerFirstMove = await pusher.trigger(roomId, "first_move", {
             id: myId
         })
     }
@@ -144,7 +144,7 @@ app.post("/makeMove", (req, res) => {
     }
 
     //Trigger Pusher Event
-    pusher.trigger(roomId, "new_move", {
+    const newMove = await pusher.trigger(roomId, "new_move", {
         data: move
     });
 
