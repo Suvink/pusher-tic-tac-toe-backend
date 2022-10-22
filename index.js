@@ -3,6 +3,7 @@ const cookieParser = require("cookie-parser");
 const db = require('memory-cache');
 const { uuid } = require('uuidv4');
 const Pusher = require("pusher");
+var randomstring = require("randomstring");
 const cors = require("cors");
 
 const PORT = 5000;
@@ -13,15 +14,12 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(cors());
 
-let usersArray = [];
 let roomsArray = [];
 
-const GAME_CHANNEL = "ttt-main-channel";
-
 const pusher = new Pusher({
-    appId: "1495168",
-    key: "6e3853dc492a3ab9e11e",
-    secret: "f1045856d704b8219b6b",
+    appId: process.env.PUSHER_APP_ID,
+    key: process.env.PUSHER_KEY,
+    secret: process.env.PUSHER_SECRET,
     cluster: "ap1",
     useTLS: true
 });
@@ -31,70 +29,140 @@ app.get("/", (req, res) => {
 });
 
 app.post("/create", (req, res) => {
-    const { name, socketId } = req.body;
+    const { name } = req.body;
 
     //Save user in the local storage
     const id = uuid();
     db.put(id, name);
-    usersArray.push({
-        id: id,
-        name: name
-    });
-
-    console.log(usersArray)
-
-    //Pusher Presence
-    const presenceData = {
-        user_id: id,
-        user_info: { name: name },
-    };
-
-    //const authResponse = pusher.authorizeChannel(socketId, GAME_CHANNEL, presenceData);
 
     res.status(200).send({
         message: "success",
         data: {
+            name: name,
             id: id
         }
     });
 });
 
-app.get("/getFreeUsers", (req, res) => {
-    res.status(200).send({
-        message: "success",
-        data: {
-            users: usersArray
-        }
-    });
-});
-
 app.post("/createRoom", (req, res) => {
-    const { myId, opponentId } = req.body;
-    const roomId = "room-" + uuid();
-    dataObj = {
-        myId: myId,
-        opponentId: opponentId,
+    const { myId } = req.body;
+    const roomId = randomstring.generate(6);
+
+    tempRoom = {
+        roomId: roomId,
+        createdBy: myId,
+        createdByName: db.get(myId),
     }
-    db.put(roomId, JSON.stringify(dataObj));
-    roomsArray.push({
-        ...dataObj,
-        roomId: roomId
-    })
-    usersArray = usersArray.filter(e => e.id !== myId); //Remove myself from free users
-    usersArray = usersArray.filter(e => e.id !== opponentId); //Remove Opponent from free users
+
+    roomsArray.push(tempRoom);
 
     res.status(200).send({
         message: "success",
         data: {
-            ...dataObj,
-            roomId: roomId
+            ...tempRoom
         }
     });
 });
 
-pusher.trigger("my-channel", "my-event", {
-    message: "hello world"
+app.post("/joinRoom", (req, res) => {
+    const { myId, roomId } = req.body;
+
+    //Find the temp room
+    const tempRoom = roomsArray.find(room => room.roomId === roomId);
+    //Create the permanant room
+    const room = {
+        ...tempRoom,
+        joinedBy: myId,
+        joinedByName: db.get(myId)
+    }
+    //Save in the db
+    db.put(roomId, JSON.stringify(room));
+
+    //Remove the temp room
+    roomsArray = roomsArray.filter(e => e.roomId !== roomId); //Remove from the temp array
+
+    //Trigger Pusher Event
+    pusher.trigger(roomId, "user_joined", {
+        data: room
+    })
+
+    res.status(200).send({
+        message: "success",
+        data: {
+            ...room
+        }
+    });
 });
+
+app.post("/makeMove", (req, res) => {
+
+    const { myId, roomId, board, xIsNext } = req.body;
+
+    //Broadcase who made the first move
+    let xcount = 0;
+    board.map(el => {
+        if (el === 'X') {
+            xcount++;
+        }
+    });
+    if (xcount === 1) {
+        pusher.trigger(roomId, "first_move", {
+            id: myId
+        })
+    }
+
+    const calculateWinner = (squares) => {
+        const lines = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6],
+        ];
+        for (let i = 0; i < lines.length; i++) {
+            const [a, b, c] = lines[i];
+            if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+                return squares[a];
+            }
+        }
+        return null;
+    }
+    const winner = calculateWinner(board);
+
+    let move = {
+        playedBy: myId,
+        roomId: roomId,
+        board: board,
+        xIsNext: xIsNext,
+        winner: winner
+    }
+
+    //Trigger Pusher Event
+    pusher.trigger(roomId, "new_move", {
+        data: move
+    });
+
+    res.status(200).send({
+        message: "success",
+        data: {
+            ...move
+        }
+    });
+});
+
+app.post("/getRoom", (req, res) => {
+    const { roomId } = req.body;
+    const room = db.get(roomId);
+    res.status(200).send({
+        message: "success",
+        data: {
+            room: JSON.parse(room)
+        }
+    });
+})
 
 //Start the app and listen on PORT 5000
 app.listen(PORT, () => {
