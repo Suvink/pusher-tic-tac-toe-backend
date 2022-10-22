@@ -5,6 +5,7 @@ const { uuid } = require('uuidv4');
 const Pusher = require("pusher");
 var randomstring = require("randomstring");
 const cors = require("cors");
+require("dotenv").config()
 
 const PORT = 5000;
 
@@ -16,10 +17,12 @@ app.use(cors({ credentials: true, origin: true }));
 
 let roomsArray = [];
 
+console.log(process.env.PUSHER_KEY?.toString())
+
 const pusher = new Pusher({
-    appId: process.env.PUSHER_APP_ID,
-    key: process.env.PUSHER_KEY,
-    secret: process.env.PUSHER_SECRET,
+    appId: process.env.PUSHER_APP_ID?.toString(),
+    key: process.env.PUSHER_KEY?.toString(),
+    secret: process.env.PUSHER_SECRET?.toString(),
     cluster: "ap1",
     useTLS: true
 });
