@@ -24,7 +24,7 @@ const pusher = new Pusher({
     key: process.env.PUSHER_KEY?.toString(),
     secret: process.env.PUSHER_SECRET?.toString(),
     cluster: "ap1",
-    useTLS: true
+    useTLS: false
 });
 
 app.get("/", (req, res) => {
@@ -101,7 +101,7 @@ app.post("/makeMove", (req, res) => {
 
     const { myId, roomId, board, xIsNext } = req.body;
 
-    //Broadcase who made the first move
+    //Broadcast who made the first move
     let xcount = 0;
     board.map(el => {
         if (el === 'X') {
