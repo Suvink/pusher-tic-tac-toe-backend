@@ -8,11 +8,16 @@ const cors = require("cors");
 
 const PORT = 5000;
 
+const corsOptions = {
+    origin: 'https://tic-tac-toe.suvin.me',
+    optionsSuccessStatus: 200
+}
+
 //Initialize Express App
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
-app.use(cors({origin:true,credentials: true}));
+app.use(cors(corsOptions));
 
 let roomsArray = [];
 
